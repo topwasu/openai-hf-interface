@@ -74,7 +74,7 @@ class OpenAI_LLM(LLMBase):
         return [self.formatter.format_output(output) for output in outputs]
 
     def score(self, prompts):
-        return asyncio.run(prompts_async_handler(prompts, self._score_async))
+        raise NotImplementedError
     
     def override_formatter(self, formatter):
         self.formatter = formatter

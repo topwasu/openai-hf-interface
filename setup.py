@@ -7,8 +7,6 @@ setup(name='openai-hf-interface',
       description="A simple interface implementation that aligns Huggingface's Transformers interface with OpenAI's API.",
       license='MIT',
       install_requires=[
-        'torch',
-        'transformers',
         'openai'
       ],
 )

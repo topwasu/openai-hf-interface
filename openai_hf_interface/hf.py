@@ -47,6 +47,8 @@ class HF_LLM(LLMBase):
         outputs = [self.formatter.format_output(output) for output in outputs]
         return outputs
     
+    def score(self, prompts):
+        raise NotImplementedError
 
 class HF_model(ABC):
     def __init__(self, model, tokenizer, data_collator):
