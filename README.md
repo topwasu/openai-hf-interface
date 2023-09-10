@@ -33,7 +33,7 @@ to
 llm = create_llm('meta-llama/Llama-2-13b-hf')
 ```
 
-Note: the `prompt` method takes in either a list of strings or a list of list of strings (you can think of it as a list of conversations) and return a list of strings. We have a `PromptFormatter` class to format these inputs before feeding them to the model. The codebase provides default `PromptFormatter` subclasses for OpenAI's models and Huggingface's LLama 2. Feel free to write your own custom `PromptFormatter` and override the default `PromptFormatter` by calling the method `override_formatter`. Please look at the (formatter file)[openai_hf_interface/formatter.py] for more information.
+Note: the `prompt` method takes in either a list of strings or a list of list of strings (you can think of it as a list of conversations) and return a list of strings. We have a `PromptFormatter` class to format these inputs before feeding them to the model. The codebase provides default `PromptFormatter` subclasses for OpenAI's models and Huggingface's LLama 2. Feel free to write your own custom `PromptFormatter` and override the default `PromptFormatter` by calling the method `override_formatter`. Please look at the [formatter file](openai_hf_interface/formatter.py) for more information.
 
 ## Feedback
 
