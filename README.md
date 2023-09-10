@@ -14,6 +14,8 @@ pip install -e .
 
 The above command only installs `openai` package for you. If you want to use Huggingface's model, you need to install `transformers` by following the instructions on their [installation page](https://huggingface.co/docs/transformers/installation). Once you've done that, please also run ```pip install sentencepiece accelerate``` so that you can use `LlamaTokenizer` and load models onto multiple gpus.
 
+Also, to use Llama 2 on Huggingface, you will need to obtain the necessary permission. First fill out Meta's [form](https://ai.meta.com/resources/models-and-libraries/llama-downloads/). Then, request access to the model you want to use on Huggingface on the Huggingface's model page like [Llama-2-7b](https://huggingface.co/meta-llama/Llama-2-7b)
+
 ## Usage
 
 ```
