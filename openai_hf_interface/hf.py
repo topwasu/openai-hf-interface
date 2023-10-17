@@ -1,6 +1,7 @@
 import torch
-from abc import ABC
+from abc import ABC, abstractmethod
 from transformers import LlamaTokenizer, LlamaForCausalLM, DataCollatorForLanguageModeling
+from torch.nn.functional import log_softmax
 
 from .base import LLMBase
 
@@ -37,18 +38,23 @@ class HF_LLM(LLMBase):
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
 
-        data = self.hf_model.data_collator([self.hf_model.tokenizer(prompt) for prompt in prompts])
+        if self.lookup_cache(prompts[0], **kwargs) is not None: # TODO: Do this better
+            outputs = [self.lookup_cache(prompt, **kwargs) for prompt in prompts]
+        else:
+            data = self.hf_model.data_collator([self.hf_model.tokenizer(prompt) for prompt in prompts])
 
-        gen_tokens = self.hf_model.model.generate(data.input_ids.to(self.device), 
-                                         attention_mask=data.attention_mask.to(self.device),
-                                         **kwargs)
-        
-        res = self.hf_model.tokenizer.batch_decode(gen_tokens[:, data.input_ids.shape[1]:])
-        outputs = [x.split(self.hf_model.tokenizer.eos_token)[0].split('<unk>')[0] for x in res]
+            gen_tokens = self.hf_model.model.generate(data.input_ids.to(self.device), 
+                                            attention_mask=data.attention_mask.to(self.device),
+                                            **kwargs)
+            
+            res = self.hf_model.tokenizer.batch_decode(gen_tokens[:, data.input_ids.shape[1]:])
+            outputs = [x.split(self.hf_model.tokenizer.eos_token)[0].split('<unk>')[0] for x in res]
+
+            for prompt, output in zip(prompts, outputs):
+                self.update_cache(prompt, output, **kwargs)
 
         outputs = [self.formatter.format_output(output) for output in outputs]
         return outputs
-    
 
 class HF_model(ABC):
     def __init__(self, model, tokenizer, data_collator):
@@ -66,4 +72,4 @@ class LLaMA_model(HF_model):
         )
         data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
 
-        super().__init__(model_name, model, tokenizer, data_collator)
+        super().__init__(model, tokenizer, data_collator)

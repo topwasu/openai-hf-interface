@@ -65,9 +65,6 @@ class OpenAI_LLM(LLMBase):
         outputs = await self._prompt_batcher(prompts, **kwargs)
 
         return [self.formatter.format_output(output) for output in outputs]
-
-    def score(self, prompts):
-        return asyncio.run(self._prompt_batcher(prompts, self._score_async))
     
     def override_formatter(self, formatter):
         self.formatter = formatter

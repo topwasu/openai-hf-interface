@@ -83,7 +83,6 @@ class SQLAlchemyCache(BaseCache):
         )
         with Session(self.engine) as session:
             generations = [row for row in session.execute(stmt)]
-            print(generations)
             generations.sort(key=lambda x: x[1])
             generations = [row[0] for row in generations]
             

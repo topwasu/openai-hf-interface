@@ -19,6 +19,6 @@ def create_llm(model_name):
     elif model_name.startswith('gpt-3.5') or model_name.startswith('gpt-4'):
         return OpenAI_LLM(model_name, prompt_openai_chat_single, formatter)
     elif model_name.startswith('meta-llama'):
-        return HF_LLM(LLaMA_model(model_name), formatter)
+        return HF_LLM(model_name, LLaMA_model(model_name), formatter)
     else:
         raise NotImplementedError
