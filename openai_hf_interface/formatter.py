@@ -10,6 +10,10 @@ class PromptFormatter(ABC):
     def format_output(self):
         pass
 
+    @abstractmethod
+    def prompt_to_string(self):
+        pass
+
 
 class DoNothingFormatter(PromptFormatter):
     def format_prompt(self, prompt):
@@ -17,6 +21,9 @@ class DoNothingFormatter(PromptFormatter):
     
     def format_output(self, output):
         return output
+    
+    def prompt_to_string(self, prompt):
+        return prompt
     
 
 class LLaMaChatFormatter(PromptFormatter):
@@ -46,6 +53,9 @@ class LLaMaChatFormatter(PromptFormatter):
     
     def format_output(self, output):
         return output
+    
+    def prompt_to_string(self, prompt):
+        return prompt
 
 
 class OpenAIChatFormatter(PromptFormatter):
@@ -71,3 +81,16 @@ class OpenAIChatFormatter(PromptFormatter):
 
     def format_output(self, output):
         return output
+    
+    def prompt_to_string(self, messages):
+        if not isinstance(messages, str):
+            txt = ""
+            if self.instruction is not None:
+                txt += f"System: {messages[0]['content']}"
+                messages = messages[1:]
+            for idx, msg in enumerate(messages):
+                if idx % 2:
+                    txt += f"Assistant: {msg['content']}"
+                else:
+                    txt += f"User: {msg['content']}"
+        return txt

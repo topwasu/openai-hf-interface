@@ -1,19 +1,21 @@
 import torch
-from abc import ABC, abstractmethod
+from abc import ABC
 from transformers import LlamaTokenizer, LlamaForCausalLM, DataCollatorForLanguageModeling
-from torch.nn.functional import log_softmax
 
 from .base import LLMBase
 
 
 # Decorator
 class HF_LLM(LLMBase):
-    def __init__(self, hf_model, formatter):
+    def __init__(self, model_name, hf_model, formatter):
         self.hf_model = hf_model
-        self.formatter = formatter
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        super().__init__(model_name, formatter)
 
     def handle_kwargs(self, kwargs):
+        if 'temperature' not in kwargs:
+            kwargs['temperature'] = 0
+
         if kwargs['temperature'] == 0:
             kwargs['do_sample'] = False
             kwargs.pop('temperature')
@@ -47,8 +49,6 @@ class HF_LLM(LLMBase):
         outputs = [self.formatter.format_output(output) for output in outputs]
         return outputs
     
-    def score(self, prompts):
-        raise NotImplementedError
 
 class HF_model(ABC):
     def __init__(self, model, tokenizer, data_collator):
@@ -66,4 +66,4 @@ class LLaMA_model(HF_model):
         )
         data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
 
-        super().__init__(model, tokenizer, data_collator)
+        super().__init__(model_name, model, tokenizer, data_collator)

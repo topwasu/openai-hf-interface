@@ -1,17 +1,8 @@
 import asyncio
-import logging
 import openai
 import time
 
 from .base import LLMBase
-
-
-async def prompts_async_handler(model, prompts, func, **kwargs):
-    all_res = []
-    for ind in range(0, len(prompts), 1000): # Batch 1000 requests
-        res = await asyncio.gather(*[func(model, prompt, **kwargs) for prompt in prompts[ind:ind+1000]])
-        all_res += res
-    return all_res
 
 
 async def prompt_openai_single(model, prompt, **kwargs):
@@ -19,7 +10,7 @@ async def prompt_openai_single(model, prompt, **kwargs):
     n_retries = 30
     while ct <= n_retries:
         try:
-            response = openai.Completion.create(model=model, prompt=prompt, **kwargs)
+            response = await openai.Completion.acreate(model=model, prompt=prompt, **kwargs)
             return response['choices'][0]['text']
         except Exception as e:
             ct += 1
@@ -43,12 +34,14 @@ async def prompt_openai_chat_single(model, messages, **kwargs):
 
 
 class OpenAI_LLM(LLMBase):
-    def __init__(self, model, formatter, prompt_single_func):
+    def __init__(self, model, prompt_single_func, formatter):
         self.model = model
-        self.formatter = formatter
         self.prompt_single_func = prompt_single_func
+        super().__init__(model, formatter)
 
     def handle_kwargs(self, kwargs):
+        if 'temperature' not in kwargs:
+            kwargs['temperature'] = 0
         if 'max_tokens' not in kwargs:
             kwargs['max_tokens'] = 1000
         if 'timeout' not in kwargs:
@@ -61,7 +54,7 @@ class OpenAI_LLM(LLMBase):
         kwargs = self.handle_kwargs(kwargs)
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
-        outputs = asyncio.run(prompts_async_handler(self.model, prompts, self.prompt_single_func, **kwargs))
+        outputs = asyncio.run(self._prompt_batcher(prompts, **kwargs))
 
         return [self.formatter.format_output(output) for output in outputs]
     
@@ -69,12 +62,28 @@ class OpenAI_LLM(LLMBase):
         kwargs = self.handle_kwargs(kwargs)
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
-        outputs = await prompts_async_handler(self.model, prompts, self.prompt_single_func, **kwargs)
+        outputs = await self._prompt_batcher(prompts, **kwargs)
 
         return [self.formatter.format_output(output) for output in outputs]
 
     def score(self, prompts):
-        raise NotImplementedError
+        return asyncio.run(self._prompt_batcher(prompts, self._score_async))
     
     def override_formatter(self, formatter):
         self.formatter = formatter
+
+    async def _prompt_batcher(self, prompts, **kwargs):
+        all_res = []
+        for ind in range(0, len(prompts), 1000): # Batch 1000 requests
+            res = await asyncio.gather(*[self._get_prompt_res(prompt, **kwargs) for prompt in prompts[ind:ind+1000]])
+            all_res += res
+        return all_res
+    
+    async def _get_prompt_res(self, prompt, **kwargs):
+        cache_res = self.lookup_cache(prompt, **kwargs)
+        if cache_res is not None:
+            return cache_res
+        
+        res = await self.prompt_single_func(self.model, prompt, **kwargs)
+        self.update_cache(prompt, res, **kwargs)
+        return res
