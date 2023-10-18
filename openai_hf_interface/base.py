@@ -41,7 +41,7 @@ class LLMBase(ABC):
             return None
         prompt_str = self.formatter.prompt_to_string(prompt)
         temp = kwargs['temperature'] if 'temperature' in kwargs else 0
-        max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length']
+        max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length'] if 'max_tokens' in kwargs else -1
         stop = kwargs['stop'] if 'stop' in kwargs else []
         return self.cache.lookup(prompt_str, self.model_name, temp, max_tokens, stop)
     
@@ -50,6 +50,6 @@ class LLMBase(ABC):
             return
         prompt_str = self.formatter.prompt_to_string(prompt)
         temp = kwargs['temperature'] if 'temperature' in kwargs else 0
-        max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length']
+        max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length'] if 'max_tokens' in kwargs else -1
         stop = kwargs['stop'] if 'stop' in kwargs else []
         self.cache.update(prompt_str, self.model_name, [ret_val], temp, max_tokens, stop)

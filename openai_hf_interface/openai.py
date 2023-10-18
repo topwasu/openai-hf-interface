@@ -43,7 +43,8 @@ class OpenAI_LLM(LLMBase):
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
         if 'max_tokens' not in kwargs:
-            kwargs['max_tokens'] = 1000
+            if not self.model.startswith('gpt-4'):
+                kwargs['max_tokens'] = 1000
         if 'timeout' not in kwargs:
             kwargs['timeout'] = 180 if self.model.startswith('gpt-4') else 30
         if 'request_timeout' not in kwargs:
@@ -79,7 +80,7 @@ class OpenAI_LLM(LLMBase):
     async def _get_prompt_res(self, prompt, **kwargs):
         cache_res = self.lookup_cache(prompt, **kwargs)
         if cache_res is not None:
-            return cache_res
+            return cache_res[0]
         
         res = await self.prompt_single_func(self.model, prompt, **kwargs)
         self.update_cache(prompt, res, **kwargs)
