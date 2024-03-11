@@ -9,6 +9,7 @@ class LLMBase(ABC):
         self.formatter = formatter
         self.cache_type = None
         self.cache = None
+        self.default_kwargs = {}
 
     @abstractmethod
     def prompt(self, prompts):
@@ -43,7 +44,8 @@ class LLMBase(ABC):
         temp = kwargs['temperature'] if 'temperature' in kwargs else 0
         max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length'] if 'max_tokens' in kwargs else -1
         stop = kwargs['stop'] if 'stop' in kwargs else []
-        return self.cache.lookup(prompt_str, self.model_name, temp, max_tokens, stop)
+        seed = kwargs['seed'] if 'seed' in kwargs else -1
+        return self.cache.lookup(prompt_str, self.model_name, temp, max_tokens, stop, seed)
     
     def update_cache(self, prompt, ret_val, **kwargs):
         if self.cache is None:
@@ -52,4 +54,10 @@ class LLMBase(ABC):
         temp = kwargs['temperature'] if 'temperature' in kwargs else 0
         max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length'] if 'max_tokens' in kwargs else -1
         stop = kwargs['stop'] if 'stop' in kwargs else []
-        self.cache.update(prompt_str, self.model_name, [ret_val], temp, max_tokens, stop)
+        seed = kwargs['seed'] if 'seed' in kwargs else -1
+        self.cache.update(prompt_str, self.model_name, [ret_val], temp, max_tokens, stop, seed)
+
+    def set_default_kwargs(self, kwargs):
+        if not isinstance(kwargs, dict):
+            raise Exception('kwargs must be a dictionary')
+        self.default_kwargs = kwargs

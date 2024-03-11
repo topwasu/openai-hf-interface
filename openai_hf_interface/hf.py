@@ -31,6 +31,9 @@ class HF_LLM(LLMBase):
             kwargs.pop('timeout')
         if 'request_timeout' in kwargs:
             kwargs.pop('request_timeout')
+
+        kwargs = {**kwargs, **self.default_kwargs}
+
         return kwargs
 
     def prompt(self, prompts, **kwargs):

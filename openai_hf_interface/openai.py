@@ -1,8 +1,19 @@
 import asyncio
+import json
 import openai
+import os
 import time
 
 from .base import LLMBase
+
+# Set openai_api_key if there's secrets.json file
+try:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join('..', dir_path, 'secrets.json')) as f:
+        data = json.load(f)
+        openai.api_key = data['openai_api_key']
+except Exception as e:
+    pass
 
 
 async def prompt_openai_single(model, prompt, **kwargs):
@@ -37,6 +48,11 @@ class OpenAI_LLM(LLMBase):
     def __init__(self, model, prompt_single_func, formatter):
         self.model = model
         self.prompt_single_func = prompt_single_func
+        self.info = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'calls': 0,
+        }
         super().__init__(model, formatter)
 
     def handle_kwargs(self, kwargs):
@@ -49,6 +65,9 @@ class OpenAI_LLM(LLMBase):
             kwargs['timeout'] = 180 if self.model.startswith('gpt-4') else 30
         if 'request_timeout' not in kwargs:
             kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
+
+        kwargs = {**kwargs, **self.default_kwargs}
+
         return kwargs
 
     def prompt(self, prompts, **kwargs):
@@ -56,6 +75,9 @@ class OpenAI_LLM(LLMBase):
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
         outputs = asyncio.run(self._prompt_batcher(prompts, **kwargs))
+        self.info['input_tokens'] += self.formatter.tiklen_formatted_prompts(prompts)
+        self.info['calls'] += len(prompts)
+        self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
 
         return [self.formatter.format_output(output) for output in outputs]
     
@@ -64,6 +86,11 @@ class OpenAI_LLM(LLMBase):
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
         outputs = await self._prompt_batcher(prompts, **kwargs)
+        # Note that this is quite risky: https://stackoverflow.com/questions/61647815/do-coroutines-require-locks-when-reading-writing-a-shared-resource
+        # Without lock, we need to ensure that operations on self.info are always atomic
+        self.info['input_tokens'] += self.formatter.tiklen_formatted_prompts(prompts)
+        self.info['calls'] += len(prompts)
+        self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
 
         return [self.formatter.format_output(output) for output in outputs]
     
@@ -79,9 +106,20 @@ class OpenAI_LLM(LLMBase):
     
     async def _get_prompt_res(self, prompt, **kwargs):
         cache_res = self.lookup_cache(prompt, **kwargs)
-        if cache_res is not None:
+        if cache_res is not None and cache_res[0] is not None:
             return cache_res[0]
         
         res = await self.prompt_single_func(self.model, prompt, **kwargs)
         self.update_cache(prompt, res, **kwargs)
         return res
+    
+    def get_info(self):
+        if self.model == 'gpt-4-1106-preview':
+            self.info['cost'] = 0.01 / 1000 * self.info['input_tokens'] + 0.03 / 1000 * self.info['output_tokens']
+        elif self.model.startswith('gpt-4'):
+            self.info['cost'] = 0.03 / 1000 * self.info['input_tokens'] + 0.06 / 1000 * self.info['output_tokens']
+        elif self.model == 'gpt-3.5-turbo':
+            self.info['cost'] = 0.001 / 1000 * self.info['input_tokens'] + 0.002 / 1000 * self.info['output_tokens']
+        else:
+            raise NotImplementedError
+        return self.info

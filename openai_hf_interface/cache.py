@@ -34,15 +34,15 @@ class InMemoryCache(BaseCache):
         """Initialize with empty cache."""
         self._cache = {}
 
-    def lookup(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop):
+    def lookup(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop, seed):
         """Look up based on prompt and llm_string."""
         if not isinstance(stop, str): stop = "|".join(stop)
-        return self._cache.get((prompt, llm_string, temperature, max_tokens, stop), None)
+        return self._cache.get((prompt, llm_string, temperature, max_tokens, stop, seed), None)
 
-    def update(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop) -> None:
+    def update(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop, seed) -> None:
         """Update cache based on prompt and llm_string."""
         if not isinstance(stop, str): stop = "|".join(stop)
-        self._cache[(prompt, llm_string, temperature, max_tokens, stop)] = return_val
+        self._cache[(prompt, llm_string, temperature, max_tokens, stop, seed)] = return_val
 
 
 Base = declarative_base()
@@ -56,6 +56,7 @@ class FullLLMCache(Base):  # type: ignore
     temperature = Column(Float, primary_key=True)
     max_tokens = Column(Integer, primary_key=True)
     stop = Column(String, primary_key=True)
+    seed = Column(Integer, primary_key=True)
     response = Column(String)
     
 
@@ -68,7 +69,7 @@ class SQLAlchemyCache(BaseCache):
         self.cache_schema = cache_schema
         self.cache_schema.metadata.create_all(self.engine)
 
-    def lookup(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop):
+    def lookup(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop, seed):
         """Look up based on prompt and llm_string."""
         if not isinstance(stop, str): stop = "|".join(stop)
         stmt = (
@@ -79,6 +80,7 @@ class SQLAlchemyCache(BaseCache):
             .where(self.cache_schema.temperature == temperature)
             .where(self.cache_schema.max_tokens == max_tokens)
             .where(self.cache_schema.stop == stop)
+            .where(self.cache_schema.seed == seed)
             .order_by(self.cache_schema.idx)
         )
         with Session(self.engine) as session:
@@ -90,7 +92,7 @@ class SQLAlchemyCache(BaseCache):
                 return generations
         return None
 
-    def n_entries(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop, session=None):
+    def n_entries(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop, seed, session=None):
         """Look up based on prompt and llm_string."""
         if not isinstance(stop, str): stop = "|".join(stop)
         stmt = (
@@ -100,6 +102,7 @@ class SQLAlchemyCache(BaseCache):
             .where(self.cache_schema.temperature == temperature)
             .where(self.cache_schema.max_tokens == max_tokens)
             .where(self.cache_schema.stop == stop)
+            .where(self.cache_schema.seed == seed)
         )
         if session is None:
             with Session(self.engine) as session:
@@ -119,18 +122,18 @@ class SQLAlchemyCache(BaseCache):
                     
         return 0
 
-    def update(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop) -> None:
+    def update(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop, seed) -> None:
         if not isinstance(stop, str): stop = "|".join(stop)
         for i, generation in enumerate(return_val):
             item = self.cache_schema(
                 prompt=prompt, llm=llm_string, response=generation, idx=i,
-                temperature=temperature, max_tokens=max_tokens, stop=stop
+                temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
             )
             with Session(self.engine) as session, session.begin():
                 session.merge(item)
                 session.commit()
 
-    def extend(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop, session=None) -> None:
+    def extend(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop, seed, session=None) -> None:
         if not isinstance(stop, str): stop = "|".join(stop)
         n = self.n_entries(prompt, llm_string, temperature, max_tokens, stop, session=session)
         print(n, "+", len(return_val), "=>", n+len(return_val), "entries")
@@ -139,7 +142,7 @@ class SQLAlchemyCache(BaseCache):
         for i, generation in enumerate(return_val):
             item = self.cache_schema(
                 prompt=prompt, llm=llm_string, response=generation, idx=i+n,
-                temperature=temperature, max_tokens=max_tokens, stop=stop
+                temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
             )
             new_items.append(item)
 

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import tiktoken
 
 
 class PromptFormatter(ABC):
@@ -56,11 +57,18 @@ class LLaMaChatFormatter(PromptFormatter):
     
     def prompt_to_string(self, prompt):
         return prompt
+    
+    def tiklen_formatted_prompts(self, prompts):
+        return sum([len(self.enc.encode(prompt)) for prompt in prompts])
+    
+    def tiklen_outputs(self, outputs):
+        return sum([len(self.enc.encode(output)) for output in outputs])
 
 
 class OpenAIChatFormatter(PromptFormatter):
     def __init__(self, instruction=None): 
         self.instruction = instruction
+        self.enc = tiktoken.get_encoding("cl100k_base")
 
     def format_prompt(self, prompt):
         if isinstance(prompt, str): 
@@ -94,3 +102,9 @@ class OpenAIChatFormatter(PromptFormatter):
                 else:
                     txt += f"User: {msg['content']}"
         return txt
+    
+    def tiklen_formatted_prompts(self, prompts):
+        return sum([sum([len(self.enc.encode(msg['content'])) for msg in prompt]) for prompt in prompts])
+    
+    def tiklen_outputs(self, outputs):
+        return sum([len(self.enc.encode(output)) for output in outputs])
