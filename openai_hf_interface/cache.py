@@ -80,8 +80,10 @@ class SQLAlchemyCache(BaseCache):
                 item_dict.pop('_sa_instance_state')
                 load_data_dicts.append(item_dict)
             with Session(engine) as session:
-                insert_stmt = insert(FullLLMCache).values(load_data_dicts)
-                session.execute(insert_stmt)
+                batch_size = 999
+                for i in range(0, len(load_data_dicts), batch_size):
+                    insert_stmt = insert(FullLLMCache).values(load_data_dicts[i:i+batch_size])
+                    session.execute(insert_stmt)
                 session.commit()
 
     def read_all(self):
@@ -171,26 +173,28 @@ class SQLAlchemyCache(BaseCache):
             item_dict.pop('_sa_instance_state')
             data_dicts.append(item_dict)
         with Session(self.load_engine) as session:
-            insert_stmt = insert(FullLLMCache).values(data_dicts)
-            do_update_stmt = insert_stmt.on_conflict_do_update(
-                index_elements=[
-                    'idx', 
-                    'prompt', 
-                    'llm',
-                    'temperature',
-                    'max_tokens',
-                    'stop',
-                    'seed'],  # Assuming these are the composite primary keys
-                set_=dict(idx = insert_stmt.excluded.idx, 
-                          prompt = insert_stmt.excluded.prompt, 
-                          llm = insert_stmt.excluded.llm, 
-                          temperature = insert_stmt.excluded.temperature, 
-                          max_tokens = insert_stmt.excluded.max_tokens, 
-                          stop = insert_stmt.excluded.stop,
-                          seed = insert_stmt.excluded.seed,
-                          response = insert_stmt.excluded.response)
-            )
-            session.execute(do_update_stmt)
+            batch_size = 999
+            for i in range(0, len(data_dicts), batch_size):
+                insert_stmt = insert(FullLLMCache).values(data_dicts[i:i+batch_size])
+                do_update_stmt = insert_stmt.on_conflict_do_update(
+                    index_elements=[
+                        'idx', 
+                        'prompt', 
+                        'llm',
+                        'temperature',
+                        'max_tokens',
+                        'stop',
+                        'seed'],  # Assuming these are the composite primary keys
+                    set_=dict(idx = insert_stmt.excluded.idx, 
+                            prompt = insert_stmt.excluded.prompt, 
+                            llm = insert_stmt.excluded.llm, 
+                            temperature = insert_stmt.excluded.temperature, 
+                            max_tokens = insert_stmt.excluded.max_tokens, 
+                            stop = insert_stmt.excluded.stop,
+                            seed = insert_stmt.excluded.seed,
+                            response = insert_stmt.excluded.response)
+                )
+                session.execute(do_update_stmt)
             session.commit()
 
 class SQLiteCache(SQLAlchemyCache):
