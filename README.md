@@ -1,5 +1,7 @@
 # OpenAI and Hugging Face Interface Alignment
 
+Note: code supporting Hugging Face models might currently be out-of-date
+
 A simple interface implementation that aligns Huggingface's Transformers interface with OpenAI's API. The interface allows switching LLM in your code base from OpenAI's GPT to Meta's LLaMA on Huggingface with just a one-line change.
 
 ## Installation
@@ -46,6 +48,15 @@ llm.setup_cache('in_memory')
 or
 ```
 llm.setup_cache('disk')
+```
+
+## Setting OpenAI's api key
+
+For convenience, instead of setting the environment variable everytime you run, you can create `secrets.json` in the top-level directory. An example of it is:
+```
+{
+    "openai_api_key": "put-your-key-here"
+}
 ```
 
 ## Feedback
