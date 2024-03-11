@@ -54,7 +54,7 @@ or
 llm.setup_cache('disk_to_memory', database_path='path-to-your-database.db')
 ```
 
-Further explanation for `disk_to_memory`: it is supposed to be use when you have multiple programs accessing the database at the same time, or when your disk is very slow and you have RAM to spare. It keeps the number of reads and writes to disk to the minimum. How it works is it loads the entire database to memory and does further caching as more data comes in in memory. To save that save/update that database to disk, please call `llm.cache.dump_to_disk()`.
+Further explanation for `disk_to_memory`: it is supposed to be use when you have multiple programs accessing the database at the same time, or when your disk is very slow and you have RAM to spare. It keeps the number of reads and writes to disk to the minimum. How it works is it loads the entire database to memory and does further caching as more data comes in in memory. To save that save/update that database to disk, please call `llm.cache.dump_to_disk()` (code for this is optimized to run fast by directly using SQLite commands).
 
 
 ## Setting OpenAI's api key

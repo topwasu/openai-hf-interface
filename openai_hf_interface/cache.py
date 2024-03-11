@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.sql.expression import func
 
 from sqlalchemy import Column, Integer, String, create_engine, select, ARRAY, Float
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm import Session
 
@@ -73,9 +74,14 @@ class SQLAlchemyCache(BaseCache):
         if load_engine is not None:
             with Session(load_engine) as session:
                 load_data = session.query(FullLLMCache).all()
+            load_data_dicts = []
+            for item in load_data:
+                item_dict = item.__dict__
+                item_dict.pop('_sa_instance_state')
+                load_data_dicts.append(item_dict)
             with Session(engine) as session:
-                for item in load_data:
-                    session.merge(item)
+                insert_stmt = insert(FullLLMCache).values(load_data_dicts)
+                session.execute(insert_stmt)
                 session.commit()
 
     def read_all(self):
@@ -159,11 +165,33 @@ class SQLAlchemyCache(BaseCache):
             raise Exception('cannot dump to disk without pointing to the database on disk')
         with Session(self.engine) as session:
             data = session.query(FullLLMCache).all()
+        data_dicts = []
+        for item in data:
+            item_dict = item.__dict__
+            item_dict.pop('_sa_instance_state')
+            data_dicts.append(item_dict)
         with Session(self.load_engine) as session:
-            for item in data:
-                session.merge(item)
+            insert_stmt = insert(FullLLMCache).values(data_dicts)
+            do_update_stmt = insert_stmt.on_conflict_do_update(
+                index_elements=[
+                    'idx', 
+                    'prompt', 
+                    'llm',
+                    'temperature',
+                    'max_tokens',
+                    'stop',
+                    'seed'],  # Assuming these are the composite primary keys
+                set_=dict(idx = insert_stmt.excluded.idx, 
+                          prompt = insert_stmt.excluded.prompt, 
+                          llm = insert_stmt.excluded.llm, 
+                          temperature = insert_stmt.excluded.temperature, 
+                          max_tokens = insert_stmt.excluded.max_tokens, 
+                          stop = insert_stmt.excluded.stop,
+                          seed = insert_stmt.excluded.seed,
+                          response = insert_stmt.excluded.response)
+            )
+            session.execute(do_update_stmt)
             session.commit()
-
 
 class SQLiteCache(SQLAlchemyCache):
     """Cache that uses SQLite as a backend."""
