@@ -9,7 +9,7 @@ from .base import LLMBase
 # Set openai_api_key if there's secrets.json file
 try:
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join('..', dir_path, 'secrets.json')) as f:
+    with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
         data = json.load(f)
         openai.api_key = data['openai_api_key']
 except Exception as e:
