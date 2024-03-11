@@ -63,11 +63,31 @@ class FullLLMCache(Base):  # type: ignore
 class SQLAlchemyCache(BaseCache):
     """Cache that uses SQAlchemy as a backend."""
 
-    def __init__(self, engine: Engine, cache_schema: Any = FullLLMCache):
+    def __init__(self, engine: Engine, load_engine: Engine = None, cache_schema: Any = FullLLMCache):
         """Initialize by creating all tables."""
         self.engine = engine
+        self.load_engine = load_engine
         self.cache_schema = cache_schema
         self.cache_schema.metadata.create_all(self.engine)
+
+        if load_engine is not None:
+            with Session(load_engine) as session:
+                load_data = session.query(FullLLMCache).all()
+            with Session(engine) as session:
+                for item in load_data:
+                    session.merge(item)
+                session.commit()
+
+    def read_all(self):
+        stmt = (
+            select(self.cache_schema.response,
+                self.cache_schema.idx)
+        )
+        with Session(self.engine) as session:
+            generations = [row for row in session.execute(stmt)]
+            generations.sort(key=lambda x: x[1])
+            generations = [row[0] for row in generations]
+        return generations
 
     def lookup(self, prompt: str, llm_string: str, temperature: float, max_tokens: int, stop, seed):
         """Look up based on prompt and llm_string."""
@@ -133,35 +153,27 @@ class SQLAlchemyCache(BaseCache):
                 session.merge(item)
                 session.commit()
 
-    def extend(self, prompt: str, llm_string: str, return_val, temperature: float, max_tokens: int, stop, seed, session=None) -> None:
-        if not isinstance(stop, str): stop = "|".join(stop)
-        n = self.n_entries(prompt, llm_string, temperature, max_tokens, stop, session=session)
-        print(n, "+", len(return_val), "=>", n+len(return_val), "entries")
-
-        new_items = []
-        for i, generation in enumerate(return_val):
-            item = self.cache_schema(
-                prompt=prompt, llm=llm_string, response=generation, idx=i+n,
-                temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
-            )
-            new_items.append(item)
-
-        if session is None:
-            with Session(self.engine) as session, session.begin():
-                session.add_all(new_items)
-                session.commit()
-        else:
-            print("about to add new items")
-            session.add_all(new_items)
-            print("about to commit new items")
+    # TODO Speed this up with upsert
+    def dump_to_disk(self):
+        if self.load_engine is None:
+            raise Exception('cannot dump to disk without pointing to the database on disk')
+        with Session(self.engine) as session:
+            data = session.query(FullLLMCache).all()
+        with Session(self.load_engine) as session:
+            for item in data:
+                session.merge(item)
             session.commit()
-            print("committed new items")
 
 
 class SQLiteCache(SQLAlchemyCache):
     """Cache that uses SQLite as a backend."""
 
-    def __init__(self, database_path: str = "completions.db"):
+    def __init__(self, database_path: str = "completions.db", to_memory=False):
         """Initialize by creating the engine and all tables."""
-        engine = create_engine(f"sqlite:///{database_path}")
-        super().__init__(engine)
+        if to_memory:
+            engine = create_engine(f"sqlite:///:memory:")
+            load_engine = create_engine(f"sqlite:///{database_path}") 
+        else:
+            engine = create_engine(f"sqlite:///{database_path}")
+            load_engine = None
+        super().__init__(engine, load_engine)

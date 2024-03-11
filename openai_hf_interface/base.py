@@ -28,12 +28,14 @@ class LLMBase(ABC):
         """
         self.formatter = formatter
 
-    def setup_cache(self, cache_type):
+    def setup_cache(self, cache_type, **kwargs):
         self.cache_type = cache_type
         if self.cache_type == 'in_memory':
             self.cache = InMemoryCache()
         elif self.cache_type == 'disk':
-            self.cache = SQLiteCache()
+            self.cache = SQLiteCache(**kwargs)
+        elif self.cache_type == 'disk_to_memory':
+            self.cache = SQLiteCache(to_memory=True, **kwargs)
         else:
             raise NotImplementedError
 
