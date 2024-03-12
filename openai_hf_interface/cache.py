@@ -72,6 +72,7 @@ class SQLAlchemyCache(BaseCache):
         self.cache_schema.metadata.create_all(self.engine)
 
         if load_engine is not None:
+            self.cache_schema.metadata.create_all(load_engine)
             with Session(load_engine) as session:
                 load_data = session.query(FullLLMCache).all()
             load_data_dicts = []
