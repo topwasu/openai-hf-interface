@@ -162,10 +162,10 @@ class SQLAlchemyCache(BaseCache):
                 session.merge(item)
                 session.commit()
 
-    # TODO Speed this up with upsert
     def dump_to_disk(self):
         if self.load_engine is None:
-            raise Exception('cannot dump to disk without pointing to the database on disk')
+            print('No load engine -- everything has been saved to disk. Returning...')
+            return
         with Session(self.engine) as session:
             data = session.query(FullLLMCache).all()
         data_dicts = []
