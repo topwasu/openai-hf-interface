@@ -8,6 +8,7 @@ setup(name='openai-hf-interface',
       license='MIT',
       install_requires=[
         'openai',
-        'sqlalchemy'
+        'sqlalchemy',
+        'tiktoken'
       ],
 )
