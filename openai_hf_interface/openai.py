@@ -1,6 +1,6 @@
 import asyncio
 import json
-import openai
+from openai import AsyncOpenAI
 import os
 import time
 
@@ -11,9 +11,9 @@ try:
     dir_path = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
         data = json.load(f)
-        openai.api_key = data['openai_api_key']
+        aclient = AsyncOpenAI(api_key=data['openai_api_key'])
 except Exception as e:
-    pass
+    aclient = AsyncOpenAI()
 
 
 async def prompt_openai_single(model, prompt, **kwargs):
@@ -21,8 +21,8 @@ async def prompt_openai_single(model, prompt, **kwargs):
     n_retries = 30
     while ct <= n_retries:
         try:
-            response = await openai.Completion.acreate(model=model, prompt=prompt, **kwargs)
-            return response['choices'][0]['text']
+            response = await aclient.completions.create(model=model, prompt=prompt, **kwargs)
+            return response.choices[0].text
         except Exception as e:
             ct += 1
             print(f'Exception occured: {e}')
@@ -35,8 +35,8 @@ async def prompt_openai_chat_single(model, messages, **kwargs):
     n_retries = 10
     while ct <= n_retries:
         try:
-            response = await openai.ChatCompletion.acreate(model=model, messages=messages, **kwargs)
-            return response['choices'][0]['message']['content']
+            response = await aclient.chat.completions.create(model=model, messages=messages, **kwargs)
+            return response.choices[0].message.content
         except Exception as e: 
             ct += 1
             print(f'Exception occured: {e}')
@@ -63,8 +63,8 @@ class OpenAI_LLM(LLMBase):
                 kwargs['max_tokens'] = 1000
         if 'timeout' not in kwargs:
             kwargs['timeout'] = 180 if self.model.startswith('gpt-4') else 30
-        if 'request_timeout' not in kwargs:
-            kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
+        # if 'request_timeout' not in kwargs:
+        #     kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
 
         kwargs = {**kwargs, **self.default_kwargs}
 
@@ -80,7 +80,7 @@ class OpenAI_LLM(LLMBase):
         self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
 
         return [self.formatter.format_output(output) for output in outputs]
-    
+
     async def aprompt(self, prompts, **kwargs):
         kwargs = self.handle_kwargs(kwargs)
 
@@ -93,7 +93,7 @@ class OpenAI_LLM(LLMBase):
         self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
 
         return [self.formatter.format_output(output) for output in outputs]
-    
+
     def override_formatter(self, formatter):
         self.formatter = formatter
 
@@ -103,16 +103,16 @@ class OpenAI_LLM(LLMBase):
             res = await asyncio.gather(*[self._get_prompt_res(prompt, **kwargs) for prompt in prompts[ind:ind+1000]])
             all_res += res
         return all_res
-    
+
     async def _get_prompt_res(self, prompt, **kwargs):
         cache_res = self.lookup_cache(prompt, **kwargs)
         if cache_res is not None and cache_res[0] is not None:
             return cache_res[0]
-        
+
         res = await self.prompt_single_func(self.model, prompt, **kwargs)
         self.update_cache(prompt, res, **kwargs)
         return res
-    
+
     def get_info(self):
         if self.model == 'gpt-4-1106-preview':
             self.info['cost'] = 0.01 / 1000 * self.info['input_tokens'] + 0.03 / 1000 * self.info['output_tokens']
