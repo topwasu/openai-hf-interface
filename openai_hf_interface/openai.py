@@ -52,6 +52,9 @@ class OpenAI_LLM(LLMBase):
             'input_tokens': 0,
             'output_tokens': 0,
             'calls': 0,
+            'actual_input_tokens': 0,
+            'actual_output_tokens': 0,
+            'actual_calls': 0,
         }
         super().__init__(model, formatter)
 
@@ -75,9 +78,15 @@ class OpenAI_LLM(LLMBase):
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
         outputs = asyncio.run(self._prompt_batcher(prompts, **kwargs))
+        outputs, input_tokens, calls, output_tokens = list(zip(*outputs)) 
+        # Note that this is quite risky: https://stackoverflow.com/questions/61647815/do-coroutines-require-locks-when-reading-writing-a-shared-resource
+        # Without lock, we need to ensure that operations on self.info are always atomic
         self.info['input_tokens'] += self.formatter.tiklen_formatted_prompts(prompts)
         self.info['calls'] += len(prompts)
         self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
+        self.info['actual_input_tokens'] += sum(input_tokens)
+        self.info['actual_calls'] += sum(calls)
+        self.info['actual_output_tokens'] += sum(output_tokens)
 
         return [self.formatter.format_output(output) for output in outputs]
 
@@ -86,11 +95,15 @@ class OpenAI_LLM(LLMBase):
 
         prompts = [self.formatter.format_prompt(prompt) for prompt in prompts]
         outputs = await self._prompt_batcher(prompts, **kwargs)
+        outputs, input_tokens, calls, output_tokens = list(zip(*outputs)) 
         # Note that this is quite risky: https://stackoverflow.com/questions/61647815/do-coroutines-require-locks-when-reading-writing-a-shared-resource
         # Without lock, we need to ensure that operations on self.info are always atomic
         self.info['input_tokens'] += self.formatter.tiklen_formatted_prompts(prompts)
         self.info['calls'] += len(prompts)
         self.info['output_tokens'] += self.formatter.tiklen_outputs(outputs)
+        self.info['actual_input_tokens'] += sum(input_tokens)
+        self.info['actual_calls'] += sum(calls)
+        self.info['actual_output_tokens'] += sum(output_tokens)
 
         return [self.formatter.format_output(output) for output in outputs]
 
@@ -107,19 +120,35 @@ class OpenAI_LLM(LLMBase):
     async def _get_prompt_res(self, prompt, **kwargs):
         cache_res = self.lookup_cache(prompt, **kwargs)
         if cache_res is not None and cache_res[0] is not None:
-            return cache_res[0]
+            return cache_res[0], 0, 0, 0
 
         res = await self.prompt_single_func(self.model, prompt, **kwargs)
         self.update_cache(prompt, res, **kwargs)
-        return res
+        return res, self.formatter.tiklen_formatted_prompts([prompt]), 1, self.formatter.tiklen_outputs([res])
 
-    def get_info(self):
-        if self.model == 'gpt-4-1106-preview':
-            self.info['cost'] = 0.01 / 1000 * self.info['input_tokens'] + 0.03 / 1000 * self.info['output_tokens']
-        elif self.model.startswith('gpt-4'):
-            self.info['cost'] = 0.03 / 1000 * self.info['input_tokens'] + 0.06 / 1000 * self.info['output_tokens']
-        elif self.model == 'gpt-3.5-turbo':
-            self.info['cost'] = 0.001 / 1000 * self.info['input_tokens'] + 0.002 / 1000 * self.info['output_tokens']
+    def get_info(self, cost_per_token=None):
+        cost_per_token_dict = {
+            'gpt-4-1106-preview': (0.010, 0.030),
+            'gpt-4-turbo': (0.010, 0.030),
+            'gpt-3.5-turbo': (0.003, 0.006),
+            'gpt-4': (0.030, 0.060),
+            'gpt-4o': (0.005, 0.015),
+            'gpt-4o-2024-08-06': (0.0025, 0.010),
+            'gpt-4o-2024-05-13': (0.005, 0.015),
+            'gpt-4o-mini': (0.00015, 0.0006),
+            'gpt-4o-mini-2024-07-18': (0.00015, 0.0006),
+            'o1-preview': (0.015, 0.060),
+            'o1-preview-2024-09-12': (0.015, 0.060),
+            'o1-mini': (0.003, 0.012),
+            'o1-mini-2024-09-12': (0.003, 0.012),
+        }
+        if cost_per_token is not None:
+            self.info['cost_per_token'] = cost_per_token
         else:
-            raise NotImplementedError
+            if self.model in cost_per_token_dict:
+                self.info['cost_per_token'] = cost_per_token_dict[self.model]
+            else:
+                self.info['cost_per_token'] = (0, 0)
+        self.info['cost'] = self.info['cost_per_token'][0] / 1000 * self.info['input_tokens'] + self.info['cost_per_token'][1] / 1000 * self.info['output_tokens']
+        self.info['actual_cost'] = self.info['cost_per_token'][0] / 1000 * self.info['actual_input_tokens'] + self.info['cost_per_token'][1] / 1000 * self.info['actual_output_tokens']
         return self.info

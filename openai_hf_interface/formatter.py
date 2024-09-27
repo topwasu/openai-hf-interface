@@ -1,5 +1,20 @@
 from abc import ABC, abstractmethod
+import base64
 import tiktoken
+import os
+
+
+def encode_image(image_path, high_quality=False):
+    if high_quality:
+        image_path_1024 = image_path.replace(".jpg", "_1024.jpg")
+        os.system(f"gm convert {image_path} -resize 1024x1024! {image_path_1024}")
+        with open(image_path_1024, "rb") as image_file:
+            data = image_file.read()
+    else:
+        with open(image_path, "rb") as image_file:
+            data = image_file.read()
+    data = base64.b64encode(data).decode('utf-8')
+    return data
 
 
 class PromptFormatter(ABC):
@@ -66,9 +81,11 @@ class LLaMaChatFormatter(PromptFormatter):
 
 
 class OpenAIChatFormatter(PromptFormatter):
-    def __init__(self, instruction=None): 
+    def __init__(self, instruction=None, high_quality_image=False): 
         self.instruction = instruction
         self.enc = tiktoken.get_encoding("cl100k_base")
+        self.image_detail = {"detail": "high"} if high_quality_image else {}
+        self.image_encoder = (lambda x: encode_image(x, True)) if high_quality_image else encode_image
 
     def format_prompt(self, prompt):
         if isinstance(prompt, str): 
@@ -77,11 +94,31 @@ class OpenAIChatFormatter(PromptFormatter):
             ]
         else:
             messages = []
+            
+            if isinstance(prompt, tuple):
+                prompt = [prompt]
 
             for user_msg, assistant_msg in zip(prompt[::2], prompt[1::2]):
-                messages.append({"role": "user", "content": user_msg})
+                if isinstance(user_msg, tuple):
+                    content = []
+                    content.append({"type": "text", "text": user_msg[0]})
+                    for user_sub_msg in user_msg[1:]:
+                        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{self.image_encoder(user_sub_msg)}", **self.image_detail}})
+                else:
+                    content = user_msg
+                messages.append({"role": "user", "content": content})
                 messages.append({"role": "assistant", "content": assistant_msg})
-            messages.append({"role": "user", "content": prompt[-1]})
+                
+            user_msg = prompt[-1]
+            if isinstance(user_msg, tuple):
+                content = []
+                content.append({"type": "text", "text": user_msg[0]})
+                for user_sub_msg in user_msg[1:]:
+                    data = self.image_encoder(user_sub_msg)
+                    content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}", **self.image_detail}})
+            else:
+                content = user_msg
+            messages.append({"role": "user", "content": content})
 
         if self.instruction is not None:
             messages = [{"role": "system", "content": self.instruction}] + messages
@@ -104,7 +141,26 @@ class OpenAIChatFormatter(PromptFormatter):
         return txt
     
     def tiklen_formatted_prompts(self, prompts):
-        return sum([sum([len(self.enc.encode(msg['content'])) for msg in prompt]) for prompt in prompts])
+        sm = 0
+        for prompt in prompts:
+            for msg in prompt:
+                if isinstance(msg["content"], str):
+                    sm += len(self.enc.encode(msg['content']))
+                else:
+                    for content in msg["content"]:
+                        for k,v in content.items():
+                            if k == "text":
+                                sm += len(self.enc.encode(v))
+                            elif k == "type":
+                                continue 
+                            elif k == "image_url":
+                                if "detail" not in v or v["detail"] != "high":
+                                    sm += 85
+                                else:
+                                    sm += 765
+                            else:
+                                assert False, f"unknown key {k}"
+        return sm
     
     def tiklen_outputs(self, outputs):
         return sum([len(self.enc.encode(output)) for output in outputs])

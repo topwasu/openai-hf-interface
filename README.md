@@ -1,8 +1,11 @@
-# OpenAI and Hugging Face Interface Alignment
+# LLM API Prompting Toolkit
 
-Note: code supporting Hugging Face models might currently be out-of-date
+This package builds on top of OpenAI API. It provides an easy-to-use prompting interface that:
+- performs asynchronous requests
+- tracks costs (both hypothetical and actual)
+- caches responses
 
-A simple interface implementation that aligns Huggingface's Transformers interface with OpenAI's API. The interface allows switching LLM in your code base from OpenAI's GPT to Meta's LLaMA on Huggingface with just a one-line change.
+(Originally, this package is supposed to be an interface that aligns Huggingface's Transformers interface with OpenAI's API, hence the name openai-hf-interface)
 
 ## Installation
 
@@ -14,10 +17,6 @@ cd openai-hf-interface
 pip install -e .
 ```
 
-The above command only installs `openai` and `sqlalchemy` package for you. If you want to use Huggingface's model, you need to install `transformers` by following the instructions on their [installation page](https://huggingface.co/docs/transformers/installation). Once you've done that, please also run ```pip install sentencepiece accelerate``` so that you can use `LlamaTokenizer` and load models onto multiple gpus.
-
-Also, to use Llama 2 on Huggingface, you will need to obtain the necessary permission. First fill out Meta's [form](https://ai.meta.com/resources/models-and-libraries/llama-downloads/). Then, request access to the model you want to use on Huggingface on the Huggingface's model page like [Llama-2-7b](https://huggingface.co/meta-llama/Llama-2-7b)
-
 ## Usage
 
 ```
@@ -25,19 +24,18 @@ import os
 os.environ['OPENAI_API_KEY'] = 'PUT-YOUR-KEY-HERE'
 from openai_hf_interface import create_llm
 
-llm = create_llm('gpt-3.5-turbo')
-print(llm.prompt(['Hello!', 'Bonjour!'], temperature=0, max_tokens=500))
-```
-Now, if you want to use LLaMA instead of ChatGPT, you simply need to change from
-```
-llm = create_llm('gpt-3.5-turbo')
-```
-to 
-```
-llm = create_llm('meta-llama/Llama-2-13b-hf')
-```
+llm = create_llm('gpt-4o-2024-08-06')
+llm.setup_cache('disk')
+print(llm.prompt(['Who are you?', 
+                  ('what is this picture? explain in a single setnece', './example_img/fake_pikachu.jpg'),
+                  [('what is this picture? explain in a single setnece', './example_img/fake_pikachu.jpg'),
+                   'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.',
+                   'It does not look like Pikachu to me. What is your second guess?']
+                  ], 
+                 temperature=0, seed=0))
 
-Note: the `prompt` method takes in either a list of strings or a list of list of strings (you can think of it as a list of conversations) and return a list of strings. We have a `PromptFormatter` class to format these inputs before feeding them to the model. The codebase provides default `PromptFormatter` subclasses for OpenAI's models and Huggingface's LLama 2. Feel free to write your own custom `PromptFormatter` and override the default `PromptFormatter` by calling the method `override_formatter`. Please look at the [formatter file](openai_hf_interface/formatter.py) for more information.
+# Response = ['I am an AI language model created by OpenAI, designed to assist with a wide range of questions and tasks by providing information and generating text based on the input I receive. How can I assist you today?', 'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.', 'This image features a cartoonish, electrified character with large, glowing eyes and lightning bolts, resembling a playful, energetic creature.']
+```
 
 ## Caching
 
@@ -65,6 +63,10 @@ For convenience, instead of setting the environment variable everytime you run, 
     "openai_api_key": "put-your-key-here"
 }
 ```
+
+## Prompt formatting
+
+Feel free to write your own custom `PromptFormatter` and override the default `PromptFormatter` by calling the method `override_formatter`. Please look at the [formatter file](openai_hf_interface/formatter.py) for more information.
 
 ## Feedback
 
