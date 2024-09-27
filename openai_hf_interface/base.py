@@ -49,7 +49,7 @@ class LLMBase(ABC):
         seed = kwargs['seed'] if 'seed' in kwargs else -1
         return self.cache.lookup(prompt_str, self.model_name, temp, max_tokens, stop, seed)
     
-    def update_cache(self, prompt, ret_val, **kwargs):
+    def update_cache(self, prompt, n, ret_val, **kwargs):
         if self.cache is None:
             return
         prompt_str = self.formatter.prompt_to_string(prompt)
@@ -57,7 +57,7 @@ class LLMBase(ABC):
         max_tokens = kwargs['max_tokens'] if 'max_tokens' in kwargs else kwargs['max_length'] if 'max_tokens' in kwargs else -1
         stop = kwargs['stop'] if 'stop' in kwargs else []
         seed = kwargs['seed'] if 'seed' in kwargs else -1
-        self.cache.update(prompt_str, self.model_name, [ret_val], temp, max_tokens, stop, seed)
+        self.cache.extend(prompt_str, n, self.model_name, ret_val, temp, max_tokens, stop, seed)
 
     def set_default_kwargs(self, kwargs):
         if not isinstance(kwargs, dict):

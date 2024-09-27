@@ -163,4 +163,4 @@ class OpenAIChatFormatter(PromptFormatter):
         return sm
     
     def tiklen_outputs(self, outputs):
-        return sum([len(self.enc.encode(output)) for output in outputs])
+        return sum([len(self.enc.encode(output)) if isinstance(output, str) else sum([len(self.enc.encode(sub_output)) for sub_output in output]) for output in outputs])

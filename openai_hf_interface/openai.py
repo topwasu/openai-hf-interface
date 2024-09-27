@@ -3,6 +3,7 @@ import json
 from openai import AsyncOpenAI
 import os
 import time
+import numpy as np
 
 from .base import LLMBase
 
@@ -16,13 +17,13 @@ except Exception as e:
     aclient = AsyncOpenAI()
 
 
-async def prompt_openai_single(model, prompt, **kwargs):
+async def prompt_openai_single(model, prompt, n, **kwargs):
     ct = 0
     n_retries = 30
     while ct <= n_retries:
         try:
-            response = await aclient.completions.create(model=model, prompt=prompt, **kwargs)
-            return response.choices[0].text
+            response = await aclient.completions.create(model=model, prompt=prompt, n=n, **kwargs)
+            return [x.text for x in response.choices]
         except Exception as e:
             ct += 1
             print(f'Exception occured: {e}')
@@ -30,13 +31,13 @@ async def prompt_openai_single(model, prompt, **kwargs):
             time.sleep(5 * ct)
 
 
-async def prompt_openai_chat_single(model, messages, **kwargs):
+async def prompt_openai_chat_single(model, messages, n, **kwargs):
     ct = 0
     n_retries = 10
     while ct <= n_retries:
         try:
-            response = await aclient.chat.completions.create(model=model, messages=messages, **kwargs)
-            return response.choices[0].message.content
+            response = await aclient.chat.completions.create(model=model, messages=messages, n=n, **kwargs)
+            return [x.message.content for x in response.choices]
         except Exception as e: 
             ct += 1
             print(f'Exception occured: {e}')
@@ -56,6 +57,7 @@ class OpenAI_LLM(LLMBase):
             'actual_output_tokens': 0,
             'actual_calls': 0,
         }
+        self.rng = np.random.default_rng(0)
         super().__init__(model, formatter)
 
     def handle_kwargs(self, kwargs):
@@ -118,13 +120,40 @@ class OpenAI_LLM(LLMBase):
         return all_res
 
     async def _get_prompt_res(self, prompt, **kwargs):
+        if 'n' in kwargs:
+            n = kwargs['n']
+        else:
+            n = 1
         cache_res = self.lookup_cache(prompt, **kwargs)
-        if cache_res is not None and cache_res[0] is not None:
-            return cache_res[0], 0, 0, 0
+        if cache_res is not None and cache_res[0] is not None and len(cache_res) >= n:
+            if 'n' in kwargs:
+                if len(cache_res) == n:
+                    return cache_res, 0, 0, 0
+                else:
+                    return self.rng.sample(cache_res, n), 0, 0, 0
+            else:
+                return cache_res[0], 0, 0, 0
+        
+        if 'n' in kwargs:
+            if cache_res is not None and cache_res[0] is not None:
+                n_existing = len(cache_res)
+            else:
+                n_existing = 0
+        else:
+            n_existing = 0
 
-        res = await self.prompt_single_func(self.model, prompt, **kwargs)
-        self.update_cache(prompt, res, **kwargs)
-        return res, self.formatter.tiklen_formatted_prompts([prompt]), 1, self.formatter.tiklen_outputs([res])
+        n_to_prompt = n - n_existing
+        
+        new_kwargs = kwargs.copy()
+        if 'n' in kwargs:
+            del new_kwargs['n']
+        res = await self.prompt_single_func(self.model, prompt, n_to_prompt, **new_kwargs)
+        self.update_cache(prompt, n_existing, res, **new_kwargs)
+        
+        if n_existing > 0:
+            res = cache_res + res
+        
+        return (res if 'n' in kwargs else res[0]), self.formatter.tiklen_formatted_prompts([prompt]), 1, self.formatter.tiklen_outputs(res)
 
     def get_info(self, cost_per_token=None):
         cost_per_token_dict = {
