@@ -26,15 +26,17 @@ from openai_hf_interface import create_llm
 
 llm = create_llm('gpt-4o-2024-08-06')
 llm.setup_cache('disk')
-print(llm.prompt(['Who are you?', 
-                  ('what is this picture? explain in a single setnece', './example_img/fake_pikachu.jpg'),
-                  [('what is this picture? explain in a single setnece', './example_img/fake_pikachu.jpg'),
+prompt1 = 'Who are you?'
+prompt2 = ('what is this picture? explain in a single sentence', './example_img/fake_pikachu.jpg')
+prompt3 = [('what is this picture? explain in a single setnece', './example_img/fake_pikachu.jpg'),
                    'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.',
                    'It does not look like Pikachu to me. What is your second guess?']
-                  ], 
-                 temperature=0, seed=0))
+print(llm.prompt([prompt1, prompt2, prompt3], temperature=0, seed=0))
 
-# Response = ['I am an AI language model created by OpenAI, designed to assist with a wide range of questions and tasks by providing information and generating text based on the input I receive. How can I assist you today?', 'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.', 'This image features a cartoonish, electrified character with large, glowing eyes and lightning bolts, resembling a playful, energetic creature.']
+# Response vvv
+# 'I am an AI language model created by OpenAI, designed to assist with a wide range of questions and tasks by providing information and generating text based on the input I receive. How can I assist you today?', 
+# 'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.', 
+# 'This image features a cartoonish, electrified character with large, glowing eyes and lightning bolts, resembling a playful, energetic creature.'
 ```
 
 ## Caching
