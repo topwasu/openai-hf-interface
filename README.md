@@ -37,7 +37,17 @@ print(llm.prompt([prompt1, prompt2, prompt3], temperature=0, seed=0))
 # Output 1 ==> 'I am an AI language model created by OpenAI, designed to assist with a wide range of questions and tasks by providing information and generating text based on the input I receive. How can I assist you today?', 
 # Output 2 ==> 'This image depicts a stylized, electrified version of Pikachu with glowing eyes and lightning bolts in the background.', 
 # Output 3 ==> 'This image features a cartoonish, electrified character with large, glowing eyes and lightning bolts, resembling a playful, energetic creature.'
+# Note: These three requests were sent to Openai API asynchronously!
 """
+```
+We also provide asynchronous version of `prompt` as `aprompt`. They work exactly the same -- the latter can be used inside an `async` function.
+
+## Cost tracking
+
+The llm object has a method called `get_info` that will output a dictionary containing various information.
+```
+print(llm.get_info())
+{'input_tokens': 99, 'output_tokens': 319, 'calls': 2, 'actual_input_tokens': 0, 'actual_output_tokens': 0, 'actual_calls': 0, 'cost_per_token': (0.0025, 0.01), 'cost': 0.0034375, 'actual_cost': 0.0}
 ```
 
 ## Caching
