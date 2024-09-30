@@ -57,8 +57,9 @@ class FullLLMCache(Base):  # type: ignore
     temperature = Column(Float, primary_key=True)
     max_tokens = Column(Integer, primary_key=True)
     stop = Column(String, primary_key=True)
-    seed = Column(Integer, primary_key=True)
     response = Column(String)
+    log_probability = Column(Float)
+    n_tokens = Column(Integer)
     
 
 class SQLAlchemyCache(BaseCache):
@@ -109,7 +110,6 @@ class SQLAlchemyCache(BaseCache):
             .where(self.cache_schema.temperature == temperature)
             .where(self.cache_schema.max_tokens == max_tokens)
             .where(self.cache_schema.stop == stop)
-            .where(self.cache_schema.seed == seed)
             .order_by(self.cache_schema.idx)
         )
         with Session(self.engine) as session:
@@ -131,7 +131,6 @@ class SQLAlchemyCache(BaseCache):
             .where(self.cache_schema.temperature == temperature)
             .where(self.cache_schema.max_tokens == max_tokens)
             .where(self.cache_schema.stop == stop)
-            .where(self.cache_schema.seed == seed)
         )
         if session is None:
             with Session(self.engine) as session:
@@ -156,7 +155,7 @@ class SQLAlchemyCache(BaseCache):
         for i, generation in enumerate(return_val):
             item = self.cache_schema(
                 prompt=prompt, llm=llm_string, response=generation, idx=i,
-                temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
+                temperature=temperature, max_tokens=max_tokens, stop=stop
             )
             with Session(self.engine) as session, session.begin():
                 session.merge(item)
@@ -168,7 +167,7 @@ class SQLAlchemyCache(BaseCache):
         for i, generation in enumerate(return_val):
             item = self.cache_schema(
                 prompt=prompt, llm=llm_string, response=generation, idx=i+n_existing,
-                temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
+                temperature=temperature, max_tokens=max_tokens, stop=stop
             )
             new_items.append(item)
 
@@ -198,15 +197,13 @@ class SQLAlchemyCache(BaseCache):
                         'llm',
                         'temperature',
                         'max_tokens',
-                        'stop',
-                        'seed'],  # Assuming these are the composite primary keys
+                        'stop'],  # Assuming these are the composite primary keys
                     set_=dict(idx = insert_stmt.excluded.idx, 
                             prompt = insert_stmt.excluded.prompt, 
                             llm = insert_stmt.excluded.llm, 
                             temperature = insert_stmt.excluded.temperature, 
                             max_tokens = insert_stmt.excluded.max_tokens, 
                             stop = insert_stmt.excluded.stop,
-                            seed = insert_stmt.excluded.seed,
                             response = insert_stmt.excluded.response)
                 )
                 session.execute(do_update_stmt)
