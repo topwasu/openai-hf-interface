@@ -90,7 +90,7 @@ class OpenAIChatFormatter(PromptFormatter):
     def format_prompt(self, prompt):
         if isinstance(prompt, str): 
             messages = [
-                {"content": prompt},
+                {"role": "user", "content": prompt},
             ]
         else:
             messages = []
@@ -113,10 +113,12 @@ class OpenAIChatFormatter(PromptFormatter):
                             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
                         else:
                             raise NotImplementedError
-                else:
+                elif isinstance(user_msg, str):
                     content = user_msg
-                messages.append({"content": content})
-                messages.append({"content": assistant_msg})
+                else:
+                    raise NotImplementedError
+                messages.append({"role": "user", "content": content})
+                messages.append({"role": "assistant", "content": assistant_msg})
                 
             user_msg = prompt[-1]
             if isinstance(user_msg, tuple):
@@ -133,9 +135,11 @@ class OpenAIChatFormatter(PromptFormatter):
                         content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
                     else:
                         raise NotImplementedError
-            else:
+            elif isinstance(user_msg, str):
                 content = user_msg
-            messages.append({"content": content})
+            else:
+                raise NotImplementedError
+            messages.append({"role": "user", "content": content})
 
         if self.instruction is not None:
             messages = [{"role": "system", "content": self.instruction}] + messages
@@ -149,13 +153,11 @@ class OpenAIChatFormatter(PromptFormatter):
         if isinstance(messages, dict):
             try:
                 if 'content' in messages and isinstance(messages['content'], str):
-                    # print(messages['content'])
-                    # input()
                     return messages['content']
             except:
                 pass
             sorted_keys = sorted(messages.keys())
-            return ";".join(f"{k}={messages[k]}" for k in sorted_keys)
+            return ";".join(f"{k}={messages[k]}" for k in sorted_keys if k != 'role')
         if isinstance(messages, list):
             return ",".join(self.prompt_to_string(p) for p in messages)
         # if not isinstance(messages, str):
