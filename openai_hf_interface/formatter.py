@@ -90,7 +90,7 @@ class OpenAIChatFormatter(PromptFormatter):
     def format_prompt(self, prompt):
         if isinstance(prompt, str): 
             messages = [
-                {"role": "user", "content": prompt},
+                {"content": prompt},
             ]
         else:
             messages = []
@@ -104,19 +104,19 @@ class OpenAIChatFormatter(PromptFormatter):
                     content.append({"type": "text", "text": user_msg[0]})
                     for user_sub_msg in user_msg[1:]:
                         # Handle various format of image
-                        if os.path.isfile(user_sub_msg):
+                        if isinstance(user_sub_msg, dict):
+                            content.append(user_sub_msg)
+                        elif os.path.isfile(user_sub_msg):
                             data = self.image_encoder(user_sub_msg)
                             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}", **self.image_detail}})
                         elif isinstance(user_sub_msg, str):
                             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
-                        elif isinstance(user_sub_msg, dict):
-                            content.append(user_sub_msg)
                         else:
                             raise NotImplementedError
                 else:
                     content = user_msg
-                messages.append({"role": "user", "content": content})
-                messages.append({"role": "assistant", "content": assistant_msg})
+                messages.append({"content": content})
+                messages.append({"content": assistant_msg})
                 
             user_msg = prompt[-1]
             if isinstance(user_msg, tuple):
@@ -124,18 +124,18 @@ class OpenAIChatFormatter(PromptFormatter):
                 content.append({"type": "text", "text": user_msg[0]})
                 for user_sub_msg in user_msg[1:]:
                     # Handle various format of image
-                    if os.path.isfile(user_sub_msg):
+                    if isinstance(user_sub_msg, dict):
+                        content.append(user_sub_msg)
+                    elif os.path.isfile(user_sub_msg):
                         data = self.image_encoder(user_sub_msg)
                         content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}", **self.image_detail}})
                     elif isinstance(user_sub_msg, str):
                         content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
-                    elif isinstance(user_sub_msg, dict):
-                        content.append(user_sub_msg)
                     else:
                         raise NotImplementedError
             else:
                 content = user_msg
-            messages.append({"role": "user", "content": content})
+            messages.append({"content": content})
 
         if self.instruction is not None:
             messages = [{"role": "system", "content": self.instruction}] + messages
@@ -145,17 +145,30 @@ class OpenAIChatFormatter(PromptFormatter):
         return output
     
     def prompt_to_string(self, messages):
-        if not isinstance(messages, str):
-            txt = ""
-            if self.instruction is not None:
-                txt += f"System: {messages[0]['content']}"
-                messages = messages[1:]
-            for idx, msg in enumerate(messages):
-                if idx % 2:
-                    txt += f"Assistant: {msg['content']}"
-                else:
-                    txt += f"User: {msg['content']}"
-        return txt
+        if isinstance(messages, str): return messages
+        if isinstance(messages, dict):
+            try:
+                if 'content' in messages and isinstance(messages['content'], str):
+                    # print(messages['content'])
+                    # input()
+                    return messages['content']
+            except:
+                pass
+            sorted_keys = sorted(messages.keys())
+            return ";".join(f"{k}={messages[k]}" for k in sorted_keys)
+        if isinstance(messages, list):
+            return ",".join(self.prompt_to_string(p) for p in messages)
+        # if not isinstance(messages, str):
+        #     txt = ""
+        #     if self.instruction is not None:
+        #         txt += f"System: {messages[0]['content']}"
+        #         messages = messages[1:]
+        #     for idx, msg in enumerate(messages):
+        #         if idx % 2:
+        #             txt += f"Assistant: {msg['content']}"
+        #         else:
+        #             txt += f"User: {msg['content']}"
+        # return txt
     
     def tiklen_formatted_prompts(self, prompts):
         sm = 0
