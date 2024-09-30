@@ -104,13 +104,13 @@ class OpenAIChatFormatter(PromptFormatter):
                     content.append({"type": "text", "text": user_msg[0]})
                     for user_sub_msg in user_msg[1:]:
                         # Handle various format of image
-                        if os.path.isfile(user_sub_msg):
+                        if isinstance(user_sub_msg, dict):
+                            content.append(user_sub_msg)
+                        elif os.path.isfile(user_sub_msg):
                             data = self.image_encoder(user_sub_msg)
                             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}", **self.image_detail}})
                         elif isinstance(user_sub_msg, str):
                             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
-                        elif isinstance(user_sub_msg, dict):
-                            content.append(user_sub_msg)
                         else:
                             raise NotImplementedError
                 else:
@@ -124,13 +124,13 @@ class OpenAIChatFormatter(PromptFormatter):
                 content.append({"type": "text", "text": user_msg[0]})
                 for user_sub_msg in user_msg[1:]:
                     # Handle various format of image
-                    if os.path.isfile(user_sub_msg):
+                    if isinstance(user_sub_msg, dict):
+                        content.append(user_sub_msg)
+                    elif os.path.isfile(user_sub_msg):
                         data = self.image_encoder(user_sub_msg)
                         content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}", **self.image_detail}})
                     elif isinstance(user_sub_msg, str):
                         content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{user_sub_msg}", **self.image_detail}})
-                    elif isinstance(user_sub_msg, dict):
-                        content.append(user_sub_msg)
                     else:
                         raise NotImplementedError
             else:
