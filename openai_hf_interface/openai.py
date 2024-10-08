@@ -130,7 +130,7 @@ class OpenAI_LLM(LLMBase):
                 if len(cache_res) == n:
                     return cache_res, 0, 0, 0
                 else:
-                    return self.rng.sample(cache_res, n), 0, 0, 0
+                    return self.rng.choice(cache_res, n), 0, 0, 0
             else:
                 return cache_res[0], 0, 0, 0
         
