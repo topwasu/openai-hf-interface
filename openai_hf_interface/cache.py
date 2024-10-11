@@ -164,17 +164,14 @@ class SQLAlchemyCache(BaseCache):
                 
     def extend(self, prompt: str, n_existing: int, llm_string: str, return_val, temperature: float, max_tokens: int, stop, seed) -> None:
         if not isinstance(stop, str): stop = "|".join(stop)
-        new_items = []
         for i, generation in enumerate(return_val):
             item = self.cache_schema(
                 prompt=prompt, llm=llm_string, response=generation, idx=i+n_existing,
                 temperature=temperature, max_tokens=max_tokens, stop=stop, seed=seed
             )
-            new_items.append(item)
-
-        with Session(self.engine) as session, session.begin():
-            session.add_all(new_items)
-            session.commit()
+            with Session(self.engine) as session, session.begin():
+                session.merge(item)
+                session.commit()
 
     def dump_to_disk(self):
         if self.load_engine is None:
