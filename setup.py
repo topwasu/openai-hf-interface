@@ -9,6 +9,7 @@ setup(name='openai-hf-interface',
       install_requires=[
         'openai>=1.0',
         'sqlalchemy',
-        'tiktoken'
+        'tiktoken',
+        'numpy'
       ],
 )

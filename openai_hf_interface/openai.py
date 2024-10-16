@@ -14,7 +14,34 @@ try:
         data = json.load(f)
         aclient = AsyncOpenAI(api_key=data['openai_api_key'])
 except Exception as e:
-    aclient = AsyncOpenAI()
+    try:
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
+            data = json.load(f)
+            aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
+    except:
+        aclient = AsyncOpenAI()
+        
+
+
+def choose_provider(provider):
+    global aclient
+    if provider == 'openrouter':
+        try:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
+                data = json.load(f)
+                aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
+        except:
+            aclient = AsyncOpenAI(base_url='https://openrouter.ai/api/v1')
+    else:
+        try:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
+                data = json.load(f)
+                aclient = AsyncOpenAI(api_key=data['openai_api_key'])
+        except:
+            aclient = AsyncOpenAI()
 
 
 async def prompt_openai_single(model, prompt, n, **kwargs):
@@ -47,7 +74,8 @@ async def prompt_openai_chat_single(model, messages, n, **kwargs):
 
 class OpenAI_LLM(LLMBase):
     def __init__(self, model, prompt_single_func, formatter):
-        self.model = model
+        self.full_model = model
+        self.model = model.split('/')[-1]
         self.prompt_single_func = prompt_single_func
         self.info = {
             'input_tokens': 0,
@@ -147,7 +175,7 @@ class OpenAI_LLM(LLMBase):
         new_kwargs = kwargs.copy()
         if 'n' in kwargs:
             del new_kwargs['n']
-        res = await self.prompt_single_func(self.model, prompt, n_to_prompt, **new_kwargs)
+        res = await self.prompt_single_func(self.full_model, prompt, n_to_prompt, **new_kwargs)
         self.update_cache(prompt, n_existing, res, **new_kwargs)
         
         if n_existing > 0:

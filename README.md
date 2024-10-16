@@ -22,8 +22,9 @@ pip install -e .
 ```
 import os
 os.environ['OPENAI_API_KEY'] = 'PUT-YOUR-KEY-HERE'
-from openai_hf_interface import create_llm
+from openai_hf_interface import create_llm, choose_provider
 
+choose_provider('openai') # or choose_provider('openrouter')
 llm = create_llm('gpt-4o-2024-08-06')
 llm.setup_cache('disk')
 prompt1 = 'Who are you?'
@@ -73,7 +74,8 @@ Further explanation for `disk_to_memory`: it is supposed to be use when you have
 For convenience, instead of setting the environment variable everytime you run, you can create `secrets.json` in the top-level directory. An example of it is:
 ```
 {
-    "openai_api_key": "put-your-key-here"
+    "openai_api_key": "put-your-key-here",
+    "openrouter_api_key": "put-your-key-here"
 }
 ```
 
