@@ -19,7 +19,7 @@ def create_llm(model_name, **formatter_kwargs):
     formatter = get_formatter(model_name, **formatter_kwargs)
     if 'davinci' in model_name:
         return OpenAI_LLM(model_name, prompt_openai_single, formatter)
-    elif model_name.split('/')[-1].startswith('gpt-3.5') or model_name.split('/')[-1].startswith('gpt-4') or model_name.startswith('o1'):
+    elif model_name.split('/')[-1].startswith('gpt-3.5') or model_name.split('/')[-1].startswith('gpt-4') or model_name.split('/')[-1].startswith('o1'):
         return OpenAI_LLM(model_name, prompt_openai_chat_single, formatter)
     elif model_name.split('/')[-1].startswith('meta-llama'):
         from .hf import HF_LLM, LLaMA_model
