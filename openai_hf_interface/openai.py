@@ -86,7 +86,7 @@ class OpenAI_LLM(LLMBase):
             'actual_calls': 0,
         }
         self.rng = np.random.default_rng(0)
-        super().__init__(model, formatter)
+        super().__init__(self.model, formatter)
 
     def handle_kwargs(self, kwargs):
         if 'temperature' not in kwargs:
