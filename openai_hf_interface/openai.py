@@ -153,7 +153,7 @@ class OpenAI_LLM(LLMBase):
         else:
             n = 1
         cache_res = self.lookup_cache(prompt, **kwargs)
-        if cache_res is not None and cache_res[0] is not None and len(cache_res) >= n:
+        if cache_res is not None and cache_res[0] is not None and len(cache_res) >= n and len(cache_res[0]) > 0:
             if 'n' in kwargs:
                 if len(cache_res) == n:
                     return cache_res, 0, 0, 0
@@ -163,7 +163,7 @@ class OpenAI_LLM(LLMBase):
                 return cache_res[0], 0, 0, 0
         
         if 'n' in kwargs:
-            if cache_res is not None and cache_res[0] is not None:
+            if cache_res is not None and cache_res[0] is not None and len(cache_res[0]) > 0:
                 n_existing = len(cache_res)
             else:
                 n_existing = 0
