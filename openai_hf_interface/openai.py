@@ -13,25 +13,28 @@ try:
     with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
         data = json.load(f)
         aclient = AsyncOpenAI(api_key=data['openai_api_key'])
+        client_provider = 'openai'
 except Exception as e:
     try:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
             data = json.load(f)
             aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
+            client_provider = 'openrouter'
     except:
         aclient = AsyncOpenAI()
-        
 
 
 def choose_provider(provider):
     global aclient
+    global client_provider
     if provider == 'openrouter':
         try:
             dir_path = os.path.dirname(os.path.realpath(__file__))
             with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
                 data = json.load(f)
                 aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
+                client_provider = 'openrouter'
         except:
             aclient = AsyncOpenAI(base_url='https://openrouter.ai/api/v1')
     else:
@@ -40,17 +43,23 @@ def choose_provider(provider):
             with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
                 data = json.load(f)
                 aclient = AsyncOpenAI(api_key=data['openai_api_key'])
+                client_provider = 'openai'
         except:
             aclient = AsyncOpenAI()
 
 
 async def prompt_openai_single(model, prompt, n, **kwargs):
+    global client_provider
     ct = 0
     n_retries = 30
     while ct <= n_retries:
         try:
-            response = await aclient.completions.create(model=model, prompt=prompt, n=n, **kwargs)
-            return [x.text for x in response.choices]
+            if client_provider == 'openrouter':
+                responses = await asyncio.gather(*[aclient.completions.create(model=model, prompt=prompt, **kwargs) for _ in range(n)])
+                return [x.text for response in responses for x in response.choices]
+            else:
+                response = await aclient.completions.create(model=model, prompt=prompt, n=n, **kwargs)
+                return [x.text for x in response.choices]
         except Exception as e:
             ct += 1
             print(f'Exception occured: {e}')
@@ -59,12 +68,17 @@ async def prompt_openai_single(model, prompt, n, **kwargs):
 
 
 async def prompt_openai_chat_single(model, messages, n, **kwargs):
+    global client_provider
     ct = 0
     n_retries = 10
     while ct <= n_retries:
         try:
-            response = await aclient.chat.completions.create(model=model, messages=messages, n=n, **kwargs)
-            return [x.message.content for x in response.choices]
+            if client_provider == 'openrouter':
+                responses = await asyncio.gather(*[aclient.chat.completions.create(model=model, messages=messages, **kwargs) for _ in range(n)])
+                return [x.message.content for response in responses for x in response.choices]
+            else:
+                response = await aclient.chat.completions.create(model=model, messages=messages, n=n, **kwargs)
+                return [x.message.content for x in response.choices]
         except Exception as e: 
             ct += 1
             print(f'Exception occured: {e}')
