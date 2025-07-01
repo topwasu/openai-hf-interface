@@ -75,6 +75,7 @@ async def prompt_openai_single(model, prompt, n, **kwargs):
                 if client_provider == 'ai_studio' and 'seed' in kwargs:
                     if kwargs['seed'] > 0:
                         raise Exception('seed not supported in AI Studio')
+                    del kwargs['seed']
                 responses = await asyncio.gather(*[aclient.completions.create(model=model, prompt=prompt, **kwargs) for _ in range(n)])
                 return [x.text for response in responses for x in response.choices]
             else:
@@ -97,6 +98,7 @@ async def prompt_openai_chat_single(model, messages, n, **kwargs):
                 if client_provider == 'ai_studio' and 'seed' in kwargs:
                     if kwargs['seed'] > 0:
                         raise Exception('seed not supported in AI Studio')
+                    del kwargs['seed']
                 responses = await asyncio.gather(*[aclient.chat.completions.create(model=model, messages=messages, **kwargs) for _ in range(n)])
                 return [x.message.content for response in responses for x in response.choices]
             else:
