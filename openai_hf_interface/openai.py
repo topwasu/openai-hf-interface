@@ -72,10 +72,6 @@ async def prompt_openai_single(model, prompt, n, **kwargs):
     while ct <= n_retries:
         try:
             if client_provider == 'openrouter' or client_provider == 'ai_studio':
-                if client_provider == 'ai_studio' and 'seed' in kwargs:
-                    if kwargs['seed'] > 0:
-                        raise Exception('seed not supported in AI Studio')
-                    del kwargs['seed']
                 responses = await asyncio.gather(*[aclient.completions.create(model=model, prompt=prompt, **kwargs) for _ in range(n)])
                 return [x.text for response in responses for x in response.choices]
             else:
@@ -95,10 +91,6 @@ async def prompt_openai_chat_single(model, messages, n, **kwargs):
     while ct <= n_retries:
         try:
             if client_provider == 'openrouter' or client_provider == 'ai_studio':
-                if client_provider == 'ai_studio' and 'seed' in kwargs:
-                    if kwargs['seed'] > 0:
-                        raise Exception('seed not supported in AI Studio')
-                    del kwargs['seed']
                 responses = await asyncio.gather(*[aclient.chat.completions.create(model=model, messages=messages, **kwargs) for _ in range(n)])
                 return [x.message.content for response in responses for x in response.choices]
             else:
@@ -131,13 +123,16 @@ class OpenAI_LLM(LLMBase):
     def handle_kwargs(self, kwargs):
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
-        if 'max_tokens' not in kwargs:
-            if not self.model.startswith('gpt-4'):
-                kwargs['max_tokens'] = 1000
+        # if 'max_tokens' not in kwargs:
+        #     if not self.model.startswith('gpt-4'):
+        #         kwargs['max_tokens'] = 1000
         if 'timeout' not in kwargs:
             kwargs['timeout'] = 180 if self.model.startswith('gpt-4') else 30
         # if 'request_timeout' not in kwargs:
         #     kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
+
+        # if client_provider == 'ai_studio' and 'seed' in kwargs:
+        #     del kwargs['seed']
 
         kwargs = {**kwargs, **self.default_kwargs}
 
