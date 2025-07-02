@@ -99,7 +99,6 @@ async def prompt_openai_chat_single(model, messages, n, **kwargs):
         except Exception as e: 
             ct += 1
             print(f'Exception occured: {e}')
-            print('yo')
             print(f'Waiting for {10 * ct} seconds')
             await asyncio.sleep(10 * ct)
 
@@ -131,8 +130,8 @@ class OpenAI_LLM(LLMBase):
         # if 'request_timeout' not in kwargs:
         #     kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
 
-        # if client_provider == 'ai_studio' and 'seed' in kwargs:
-        #     del kwargs['seed']
+        if client_provider == 'ai_studio' and 'seed' in kwargs:
+            del kwargs['seed']
 
         kwargs = {**kwargs, **self.default_kwargs}
 
