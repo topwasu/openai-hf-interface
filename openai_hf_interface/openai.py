@@ -232,6 +232,9 @@ class OpenAI_LLM(LLMBase):
             'o1-preview-2024-09-12': (0.015, 0.060),
             'o1-mini': (0.003, 0.012),
             'o1-mini-2024-09-12': (0.003, 0.012),
+            'gemini-1.5-flash': (0.000075, 0.0003),
+            'gemini-2.5-flash': (0.0003, 0.0025),
+            'gpt-5': (0.00125, 0.010),
         }
         if cost_per_token is not None:
             self.info['cost_per_token'] = cost_per_token
