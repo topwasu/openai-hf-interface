@@ -8,27 +8,44 @@ import numpy as np
 from .base import LLMBase
 
 # Set openai_api_key if there's secrets.json file
+
 try:
     dir_path = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
         data = json.load(f)
-        aclient = AsyncOpenAI(api_key=data['openai_api_key'])
-        client_provider = 'openai'
+        aclient = AsyncOpenAI(api_key=data['ai_studio_key'], base_url='https://generativelanguage.googleapis.com/v1beta/openai/')
+        client_provider = 'ai_studio'
 except Exception as e:
     try:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
             data = json.load(f)
-            aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
-            client_provider = 'openrouter'
-    except:
-        aclient = AsyncOpenAI()
+            aclient = AsyncOpenAI(api_key=data['openai_api_key'])
+            client_provider = 'openai'
+    except Exception as e:
+        try:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
+                data = json.load(f)
+                aclient = AsyncOpenAI(api_key=data['openrouter_api_key'], base_url='https://openrouter.ai/api/v1')
+                client_provider = 'openrouter'
+        except:
+            aclient = AsyncOpenAI()
 
 
 def choose_provider(provider):
     global aclient
     global client_provider
-    if provider == 'openrouter':
+    if provider == 'ai_studio':
+        try:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
+                data = json.load(f)
+                aclient = AsyncOpenAI(api_key=data['ai_studio_key'], base_url='https://generativelanguage.googleapis.com/v1beta/openai/')
+                client_provider = 'ai_studio'
+        except:
+            aclient = AsyncOpenAI()
+    elif provider == 'openrouter':
         try:
             dir_path = os.path.dirname(os.path.realpath(__file__))
             with open(os.path.join(dir_path, '..', 'secrets.json')) as f:
@@ -54,7 +71,7 @@ async def prompt_openai_single(model, prompt, n, **kwargs):
     n_retries = 30
     while ct <= n_retries:
         try:
-            if client_provider == 'openrouter':
+            if client_provider == 'openrouter' or client_provider == 'ai_studio':
                 responses = await asyncio.gather(*[aclient.completions.create(model=model, prompt=prompt, **kwargs) for _ in range(n)])
                 return [x.text for response in responses for x in response.choices]
             else:
@@ -73,7 +90,7 @@ async def prompt_openai_chat_single(model, messages, n, **kwargs):
     n_retries = 10
     while ct <= n_retries:
         try:
-            if client_provider == 'openrouter':
+            if client_provider == 'openrouter' or client_provider == 'ai_studio':
                 responses = await asyncio.gather(*[aclient.chat.completions.create(model=model, messages=messages, **kwargs) for _ in range(n)])
                 return [x.message.content for response in responses for x in response.choices]
             else:
@@ -105,13 +122,16 @@ class OpenAI_LLM(LLMBase):
     def handle_kwargs(self, kwargs):
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
-        if 'max_tokens' not in kwargs:
-            if not self.model.startswith('gpt-4'):
-                kwargs['max_tokens'] = 1000
+        # if 'max_tokens' not in kwargs:
+        #     if not self.model.startswith('gpt-4'):
+        #         kwargs['max_tokens'] = 1000
         if 'timeout' not in kwargs:
             kwargs['timeout'] = 180 if self.model.startswith('gpt-4') else 30
         # if 'request_timeout' not in kwargs:
         #     kwargs['request_timeout'] = 180 if self.model.startswith('gpt-4') else 30
+
+        if client_provider == 'ai_studio' and 'seed' in kwargs:
+            del kwargs['seed']
 
         kwargs = {**kwargs, **self.default_kwargs}
 
@@ -212,6 +232,9 @@ class OpenAI_LLM(LLMBase):
             'o1-preview-2024-09-12': (0.015, 0.060),
             'o1-mini': (0.003, 0.012),
             'o1-mini-2024-09-12': (0.003, 0.012),
+            'gemini-1.5-flash': (0.000075, 0.0003),
+            'gemini-2.5-flash': (0.0003, 0.0025),
+            'gpt-5': (0.00125, 0.010),
         }
         if cost_per_token is not None:
             self.info['cost_per_token'] = cost_per_token
